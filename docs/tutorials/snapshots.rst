@@ -31,9 +31,32 @@ configuration always overrides the zero-config fallback when present.
 
 .. note::
 
-   By default, snapshots are deleted when a fault is cleared via the
-   ``DELETE /api/v1/faults/{code}`` endpoint or ``~/clear_fault`` service.
-   Set ``snapshots.retain_on_clear: true`` to keep them across clears.
+   By default, clearing a fault deletes its **value snapshots**, the per-topic
+   JSON captures this tutorial configures. Every clear reaches storage the same
+   way, whatever asked for it: the per-fault
+   ``DELETE /api/v1/apps/{app_id}/faults/{fault_code}`` route (``components``,
+   ``areas`` and ``functions`` carry the same one, though there is no global
+   ``DELETE /api/v1/faults/{code}``), the bulk
+   ``DELETE /api/v1/apps/{app_id}/faults`` and ``DELETE /api/v1/faults``, the
+   ``~/clear_fault`` service, and the correlation cascade, which clears a root
+   cause's symptoms with no clear addressed to them. The OPC UA plugin calls
+   that same service when a threshold alarm de-asserts, so a value going back
+   in range clears the fault the way an operator does; a native AlarmCondition
+   clears that way only once the operator has acknowledged it (and confirmed
+   it, unless ``require_confirm_for_clear`` is off), and stays CONFIRMED until
+   then. A plugin that de-asserts with a PASSED report instead, as the graph
+   watchdog does, goes through debounce and healing, and nothing on that path
+   deletes the snapshots: with ``healing_enabled`` the fault heals once its
+   counter reaches ``healing_threshold``, without it (the default) it stays
+   CONFIRMED, and its snapshots stay either way. Starting with healing disabled takes the
+   value snapshots of leftover HEALED rows as it reclassifies them, without a
+   clear at all. ``snapshots.retain_on_clear: true`` keeps the value snapshots
+   across all of it, and only those. The rosbag recording is not covered by that
+   setting. A clear deletes the recording under
+   ``snapshots.rosbag.auto_cleanup``, unless that is off or
+   ``snapshots.rosbag.max_bags_per_fault`` keeps a history. The cap then governs
+   retention, except at ``0`` (unlimited), where only
+   ``snapshots.rosbag.max_total_storage_mb`` bounds it.
 
 Quick Start
 -----------
@@ -360,7 +383,7 @@ Troubleshooting
 
 **Empty topics object in response**
 
-- The fault may have been cleared (snapshots are deleted on clear unless
+- The fault may have been cleared (value snapshots are deleted on clear unless
   ``snapshots.retain_on_clear`` is enabled)
 - No topics were configured for this fault code
 - All configured topics timed out or exceeded size limit
@@ -380,7 +403,10 @@ Rosbag Capture (Time-Window Recording)
 
 In addition to JSON snapshots, you can enable **rosbag capture** for "black box"
 style recording. This continuously buffers messages in memory and flushes them
-to a bag file when a fault is confirmed.
+to a bag file when a fault is confirmed. The recording is deleted when the fault
+is cleared, unless ``snapshots.rosbag.auto_cleanup`` is off or
+``snapshots.rosbag.max_bags_per_fault`` keeps a history, which takes over the
+retention decision.
 
 **Key differences from JSON snapshots:**
 

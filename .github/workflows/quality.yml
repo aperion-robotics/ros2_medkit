@@ -17,18 +17,13 @@ jobs:
   format-lint:
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:noble
+      image: ros:jazzy-ros-base
     timeout-minutes: 45
     defaults:
       run:
         shell: bash
 
     steps:
-      - name: Install Git
-        run: |
-          apt-get update
-          apt-get install -y git
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -39,20 +34,12 @@ jobs:
       - name: Every C++ package opts into coverage instrumentation
         run: ./scripts/check_coverage_packages.sh --static-only
 
-      - name: Pre-install ROS 2 apt source
-        uses: ./.github/actions/ros-apt-source
-
-      - name: Set up ROS 2 Jazzy
-        uses: ros-tooling/setup-ros@v0.7
-        with:
-          required-ros-distributions: jazzy
-
       - name: Install dependencies
         run: |
           apt-get update
           apt-get install -y clang-format ccache
           source /opt/ros/jazzy/setup.bash
-          rosdep update
+          for attempt in 1 2 3; do rosdep update && break; [ "$attempt" = 3 ] && exit 1; echo "rosdep update attempt $attempt failed, retrying" >&2; sleep 5; done
           rosdep install --from-paths src --ignore-src -y
 
       - name: Cache ccache
@@ -104,18 +91,13 @@ jobs:
   clang-tidy:
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:noble
+      image: ros:jazzy-ros-base
     timeout-minutes: 90
     defaults:
       run:
         shell: bash
 
     steps:
-      - name: Install Git
-        run: |
-          apt-get update
-          apt-get install -y git
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -124,16 +106,10 @@ jobs:
       - name: Fix git safe directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Pre-install ROS 2 apt source
-        uses: ./.github/actions/ros-apt-source
-
-      - name: Set up ROS 2 Jazzy
-        uses: ros-tooling/setup-ros@v0.7
-        with:
-          required-ros-distributions: jazzy
-
       - name: Install ccache and clang-tidy
-        run: apt-get install -y ccache clang-tidy
+        run: |
+          apt-get update
+          apt-get install -y ccache clang-tidy
 
       - name: Cache ccache
         uses: actions/cache@v4
@@ -145,8 +121,9 @@ jobs:
 
       - name: Install clang-tidy-cache (ctcache)
         run: |
+          apt-get update
           apt-get install -y python3-pip
-          pip3 install --break-system-packages git+https://github.com/matus-chochlik/ctcache.git@3880541496c7ce0d2e2830d2f525375078fe0b1f
+          for attempt in 1 2 3; do pip3 install --break-system-packages git+https://github.com/matus-chochlik/ctcache.git@3880541496c7ce0d2e2830d2f525375078fe0b1f && break; [ "$attempt" = 3 ] && exit 1; echo "ctcache install attempt $attempt failed, retrying" >&2; sleep 5; done
           printf '#!/bin/sh\nexec clang-tidy-cache /usr/bin/clang-tidy "$@"\n' > /usr/local/bin/ctcache-wrapper
           chmod +x /usr/local/bin/ctcache-wrapper
 
@@ -163,7 +140,7 @@ jobs:
           apt-get update
           apt-get install -y ros-jazzy-test-msgs
           source /opt/ros/jazzy/setup.bash
-          rosdep update
+          for attempt in 1 2 3; do rosdep update && break; [ "$attempt" = 3 ] && exit 1; echo "rosdep update attempt $attempt failed, retrying" >&2; sleep 5; done
           rosdep install --from-paths src --ignore-src -y
 
       - name: Build (compile database only, no clang-tidy)
@@ -243,7 +220,7 @@ jobs:
   sanitizer-asan:
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:noble
+      image: ros:jazzy-ros-base
       # Bind-mount the runner's large temp disk. The ASan+UBSan build tree
       # measured ~27 GB before the sanitizer module started passing -g1; the
       # post -g1 size has not been measured on a real run yet, so treat that
@@ -263,24 +240,13 @@ jobs:
         shell: bash
 
     steps:
-      - name: Install Git
-        run: |
-          apt-get update
-          apt-get install -y git
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Pre-install ROS 2 apt source
-        uses: ./.github/actions/ros-apt-source
-
-      - name: Set up ROS 2 Jazzy
-        uses: ros-tooling/setup-ros@v0.7
-        with:
-          required-ros-distributions: jazzy
-
       - name: Install ccache
-        run: apt-get install -y ccache
+        run: |
+          apt-get update
+          apt-get install -y ccache
 
       - name: Cache ccache
         uses: actions/cache@v4
@@ -295,7 +261,7 @@ jobs:
           apt-get update
           apt-get install -y ros-jazzy-test-msgs
           source /opt/ros/jazzy/setup.bash
-          rosdep update
+          for attempt in 1 2 3; do rosdep update && break; [ "$attempt" = 3 ] && exit 1; echo "rosdep update attempt $attempt failed, retrying" >&2; sleep 5; done
           rosdep install --from-paths src --ignore-src -y
 
       - name: Redirect heavy build output to /mnt
@@ -404,7 +370,7 @@ jobs:
   sanitizer-tsan:
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:noble
+      image: ros:jazzy-ros-base
       # See sanitizer-asan: the instrumented RelWithDebInfo build tree does not
       # fit the container overlay on small GitHub runners, so build on /mnt.
       volumes:
@@ -417,24 +383,13 @@ jobs:
         shell: bash
 
     steps:
-      - name: Install Git
-        run: |
-          apt-get update
-          apt-get install -y git
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Pre-install ROS 2 apt source
-        uses: ./.github/actions/ros-apt-source
-
-      - name: Set up ROS 2 Jazzy
-        uses: ros-tooling/setup-ros@v0.7
-        with:
-          required-ros-distributions: jazzy
-
       - name: Install ccache
-        run: apt-get install -y ccache
+        run: |
+          apt-get update
+          apt-get install -y ccache
 
       - name: Cache ccache
         uses: actions/cache@v4
@@ -449,7 +404,7 @@ jobs:
           apt-get update
           apt-get install -y ros-jazzy-test-msgs
           source /opt/ros/jazzy/setup.bash
-          rosdep update
+          for attempt in 1 2 3; do rosdep update && break; [ "$attempt" = 3 ] && exit 1; echo "rosdep update attempt $attempt failed, retrying" >&2; sleep 5; done
           rosdep install --from-paths src --ignore-src -y
 
       - name: Redirect heavy build output to /mnt
@@ -551,7 +506,7 @@ jobs:
             cmake_sanitizer: tsan
             ccache_size: 1.5G
     container:
-      image: ubuntu:noble
+      image: ros:jazzy-ros-base
       # See sanitizer-asan: the instrumented build tree does not fit the
       # container overlay on small GitHub runners, so build on /mnt.
       volumes:
@@ -564,24 +519,13 @@ jobs:
         shell: bash
 
     steps:
-      - name: Install Git
-        run: |
-          apt-get update
-          apt-get install -y git
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Pre-install ROS 2 apt source
-        uses: ./.github/actions/ros-apt-source
-
-      - name: Set up ROS 2 Jazzy
-        uses: ros-tooling/setup-ros@v0.7
-        with:
-          required-ros-distributions: jazzy
-
       - name: Install ccache
-        run: apt-get install -y ccache
+        run: |
+          apt-get update
+          apt-get install -y ccache
 
       - name: Restore ccache
         # Restore, never save. This job compiles a subset of the sources
@@ -601,7 +545,7 @@ jobs:
           apt-get update
           apt-get install -y ros-jazzy-test-msgs
           source /opt/ros/jazzy/setup.bash
-          rosdep update
+          for attempt in 1 2 3; do rosdep update && break; [ "$attempt" = 3 ] && exit 1; echo "rosdep update attempt $attempt failed, retrying" >&2; sleep 5; done
           rosdep install --from-paths src --ignore-src -y
 
       - name: Redirect heavy build output to /mnt

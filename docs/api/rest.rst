@@ -1496,6 +1496,22 @@ Query and manage faults.
    - ``confirmedDTC``: Confirmed DTC indicator (``0`` or ``1``)
    - ``pendingDTC``: Pending DTC indicator (``0`` or ``1``)
 
+   **Extended Data Records:**
+
+   The ``environment_data.extended_data_records`` object carries the fault's
+   occurrence timestamps, which are ``Fault.msg``'s ``first_occurred`` and
+   ``last_occurred`` (see :doc:`messages`). The list route serves the same
+   instants as ``first_occurred`` and ``last_occurred`` in epoch seconds; only
+   this detail route renames them and formats them as ISO-8601 UTC with
+   millisecond precision:
+
+   - ``first_occurrence``: when the current occurrence started, reset when a
+     FAILED event reactivates a CLEARED fault, so it moves with
+     ``occurrence_count`` instead of marking the fault's first report ever.
+   - ``last_occurrence``: when this fault last occurred, from FAILED events
+     only. A PASSED event is the fault ending, not occurring, and does not
+     touch this field.
+
    **Snapshot Types:**
 
    - ``freeze_frame``: Data captured at fault confirmation. Entity frames for
